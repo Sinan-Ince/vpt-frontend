@@ -3,6 +3,10 @@ import 'package:intl/intl.dart';
 
 import '../api/api_client.dart';
 import '../models/app_notification.dart';
+import '../theme/app_theme.dart';
+import '../widgets/cinematic_background.dart';
+import '../widgets/glass_panel.dart';
+import '../widgets/staggered_fade_in.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final int searchId;
@@ -53,75 +57,106 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async => _refresh(),
-        child: FutureBuilder<List<AppNotification>>(
-          future: _notificationsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
+      body: CinematicBackground(
+        child: RefreshIndicator(
+          onRefresh: () async => _refresh(),
+          child: FutureBuilder<List<AppNotification>>(
+            future: _notificationsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-            if (snapshot.hasError) {
-              return ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'Hata: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
-              );
-            }
-
-            final notifications = snapshot.data ?? [];
-
-            if (notifications.isEmpty) {
-              return ListView(
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(
+              if (snapshot.hasError) {
+                return ListView(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
                       child: Text(
-                        'Henüz bir bildirim yok.\nCanlı takibi açıp biraz bekleyin — '
-                        'yeni bir eşleşme çıktığında burada görünecek.',
-                        textAlign: TextAlign.center,
+                        'Hata: ${snapshot.error}',
+                        style: TextStyle(color: AppTheme.errorColor),
                       ),
                     ),
-                  ),
-                ],
-              );
-            }
-
-            return ListView.builder(
-              itemCount: notifications.length,
-              itemBuilder: (context, index) {
-                final notification = notifications[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.notifications_active),
-                    ),
-                    title: Text(notification.message),
-                    subtitle: Text(
-                      '${notification.brand} ${notification.model} (${notification.year}) • '
-                      '${_priceFormat.format(notification.price)} TL',
-                    ),
-                    trailing: Text(
-                      _relativeTime(notification.createdAt),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
+                  ],
                 );
-              },
-            );
-          },
+              }
+
+              final notifications = snapshot.data ?? [];
+
+              if (notifications.isEmpty) {
+                return ListView(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Center(
+                        child: Text(
+                          'Henüz bir bildirim yok.\nCanlı takibi açıp biraz bekleyin — '
+                          'yeni bir eşleşme çıktığında burada görünecek.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white54),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+                itemCount: notifications.length,
+                itemBuilder: (context, index) {
+                  final notification = notifications[index];
+                  return StaggeredFadeIn(
+                    index: index,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: GlassPanel(
+                        glowColor: AppTheme.accentColor,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.notifications_active,
+                              color: AppTheme.accentColor,
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    notification.message,
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${notification.brand} ${notification.model} (${notification.year}) • '
+                                    '${_priceFormat.format(notification.price)} TL',
+                                    style: const TextStyle(color: Colors.white54),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _relativeTime(notification.createdAt),
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.copyWith(color: Colors.white38),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../navigation/cinematic_route.dart';
 import '../services/session_store.dart';
+import '../theme/app_theme.dart';
+import '../widgets/brand_model_year_picker.dart';
+import '../widgets/cinematic_background.dart';
+import '../widgets/glass_panel.dart';
 import 'login_screen.dart';
 import 'results_screen.dart';
 
@@ -19,21 +24,17 @@ class _SearchScreenState extends State<SearchScreen> {
   final ApiClient _apiClient = ApiClient();
   final SessionStore _sessionStore = SessionStore();
 
-  final _brandController = TextEditingController();
-  final _modelController = TextEditingController();
-  final _yearController = TextEditingController();
   final _maxMileageController = TextEditingController();
   final _maxPriceController = TextEditingController();
   final _fuelTypeController = TextEditingController();
 
+  VehicleSelection? _vehicleSelection;
   bool _isSubmitting = false;
+  bool _showAdvanced = false;
   String? _errorMessage;
 
   @override
   void dispose() {
-    _brandController.dispose();
-    _modelController.dispose();
-    _yearController.dispose();
     _maxMileageController.dispose();
     _maxPriceController.dispose();
     _fuelTypeController.dispose();
@@ -41,7 +42,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate() || _vehicleSelection == null) {
       return;
     }
 
@@ -51,11 +52,13 @@ class _SearchScreenState extends State<SearchScreen> {
     });
 
     try {
+      final selection = _vehicleSelection!;
       final search = await _apiClient.createVehicleSearch(
         userId: widget.userId,
-        brand: _brandController.text.trim(),
-        model: _modelController.text.trim(),
-        year: int.parse(_yearController.text.trim()),
+        brand: selection.brand,
+        model: selection.model,
+        minYear: selection.minYear,
+        maxYear: selection.maxYear,
         maxMileage: _maxMileageController.text.trim().isEmpty
             ? null
             : int.parse(_maxMileageController.text.trim()),
@@ -70,10 +73,11 @@ class _SearchScreenState extends State<SearchScreen> {
       if (!mounted) return;
 
       Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => ResultsScreen(
+        cinematicRoute(
+          ResultsScreen(
             userId: widget.userId,
             searchId: search.id,
+            brand: selection.brand,
           ),
         ),
       );
@@ -95,10 +99,9 @@ class _SearchScreenState extends State<SearchScreen> {
 
     if (!mounted) return;
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-      (route) => false,
-    );
+    Navigator.of(
+      context,
+    ).pushAndRemoveUntil(cinematicRoute(const LoginScreen()), (route) => false);
   }
 
   @override
@@ -114,109 +117,128 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ],
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Text(
-                'Aradığın aracın özelliklerini gir',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'İlanlar bulunan araçları yüzdelik uyum sırasına göre listeleyeceğiz.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+      body: CinematicBackground(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text(
+                  'Aradığın aracın özelliklerini gir',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'İlanlar bulunan araçları yüzdelik uyum sırasına göre listeleyeceğiz.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.white54),
+                ),
+                const SizedBox(height: 16),
+                GlassPanel(
+                  glowColor: AppTheme.accentColor,
+                  padding: const EdgeInsets.all(18),
                   child: Form(
                     key: _formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        TextFormField(
-                          controller: _brandController,
-                          decoration: const InputDecoration(
-                            labelText: 'Marka',
-                            prefixIcon: Icon(Icons.directions_car_outlined),
-                          ),
-                          textInputAction: TextInputAction.next,
-                          validator: (value) => (value == null || value.trim().isEmpty)
-                              ? 'Marka zorunlu'
-                              : null,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _modelController,
-                          decoration: const InputDecoration(
-                            labelText: 'Model',
-                            prefixIcon: Icon(Icons.style_outlined),
-                          ),
-                          textInputAction: TextInputAction.next,
-                          validator: (value) => (value == null || value.trim().isEmpty)
-                              ? 'Model zorunlu'
-                              : null,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _yearController,
-                          decoration: const InputDecoration(
-                            labelText: 'Yıl',
-                            prefixIcon: Icon(Icons.calendar_today_outlined),
-                          ),
-                          keyboardType: TextInputType.number,
-                          textInputAction: TextInputAction.next,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) return 'Yıl zorunlu';
-                            if (int.tryParse(value.trim()) == null) return 'Geçerli bir yıl gir';
-                            return null;
+                        BrandModelYearPicker(
+                          onChanged: (selection) {
+                            _vehicleSelection = selection;
                           },
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _maxMileageController,
-                          decoration: const InputDecoration(
-                            labelText: 'Maksimum km (opsiyonel)',
-                            prefixIcon: Icon(Icons.speed_outlined),
+                        const SizedBox(height: 16),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => setState(() => _showAdvanced = !_showAdvanced),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.tune,
+                                  size: 18,
+                                  color: Colors.white54,
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'Diğer tercihler (opsiyonel)',
+                                    style: TextStyle(color: Colors.white54),
+                                  ),
+                                ),
+                                AnimatedRotation(
+                                  turns: _showAdvanced ? 0.5 : 0,
+                                  duration: const Duration(milliseconds: 250),
+                                  child: const Icon(
+                                    Icons.expand_more,
+                                    color: Colors.white54,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          keyboardType: TextInputType.number,
-                          textInputAction: TextInputAction.next,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) return null;
-                            if (int.tryParse(value.trim()) == null) return 'Geçerli bir sayı gir';
-                            return null;
-                          },
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _maxPriceController,
-                          decoration: const InputDecoration(
-                            labelText: 'Maksimum fiyat (opsiyonel)',
-                            prefixIcon: Icon(Icons.payments_outlined),
-                            suffixText: 'TL',
-                          ),
-                          keyboardType: TextInputType.number,
-                          textInputAction: TextInputAction.next,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) return null;
-                            if (double.tryParse(value.trim()) == null) {
-                              return 'Geçerli bir sayı gir';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _fuelTypeController,
-                          decoration: const InputDecoration(
-                            labelText: 'Yakıt tipi (opsiyonel)',
-                            prefixIcon: Icon(Icons.local_gas_station_outlined),
-                          ),
-                          textInputAction: TextInputAction.done,
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOutCubic,
+                          child: _showAdvanced
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    const SizedBox(height: 12),
+                                    TextFormField(
+                                      controller: _maxMileageController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Maksimum km (opsiyonel)',
+                                        prefixIcon: Icon(Icons.speed_outlined),
+                                      ),
+                                      keyboardType: TextInputType.number,
+                                      textInputAction: TextInputAction.next,
+                                      validator: (value) {
+                                        if (value == null || value.trim().isEmpty) {
+                                          return null;
+                                        }
+                                        if (int.tryParse(value.trim()) == null) {
+                                          return 'Geçerli bir sayı gir';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    const SizedBox(height: 12),
+                                    TextFormField(
+                                      controller: _maxPriceController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Maksimum fiyat (opsiyonel)',
+                                        prefixIcon: Icon(Icons.payments_outlined),
+                                        suffixText: 'TL',
+                                      ),
+                                      keyboardType: TextInputType.number,
+                                      textInputAction: TextInputAction.next,
+                                      validator: (value) {
+                                        if (value == null || value.trim().isEmpty) {
+                                          return null;
+                                        }
+                                        if (double.tryParse(value.trim()) == null) {
+                                          return 'Geçerli bir sayı gir';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    const SizedBox(height: 12),
+                                    TextFormField(
+                                      controller: _fuelTypeController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Yakıt tipi (opsiyonel)',
+                                        prefixIcon: Icon(Icons.local_gas_station_outlined),
+                                      ),
+                                      textInputAction: TextInputAction.done,
+                                    ),
+                                  ],
+                                )
+                              : const SizedBox(width: double.infinity),
                         ),
                         const SizedBox(height: 20),
                         if (_errorMessage != null)
@@ -224,7 +246,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             padding: const EdgeInsets.only(bottom: 12),
                             child: Text(
                               _errorMessage!,
-                              style: const TextStyle(color: Colors.red),
+                              style: TextStyle(color: AppTheme.errorColor),
                             ),
                           ),
                         FilledButton.icon(
@@ -235,21 +257,18 @@ class _SearchScreenState extends State<SearchScreen> {
                                   width: 18,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.white,
+                                    color: AppTheme.onAccentColor,
                                   ),
                                 )
                               : const Icon(Icons.search),
                           label: const Text('Ara'),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

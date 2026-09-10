@@ -9,9 +9,10 @@ import '../models/vehicle_search.dart';
 import '../models/vehicle_tracking.dart';
 
 class ApiClient {
-  // Flutter web (Edge) ile aynı makinede çalışan backend'e işaret eder.
-  // Android emulator'da test edilecekse 10.0.2.2 kullanılmalı.
-  static const String baseUrl = 'http://localhost:5202';
+  // AWS'teki Docker Compose backend'ine işaret ediyor (infra/backend-stack.yaml
+  // ile CfnLauncher üzerinden deploy edildi) — API portu 5202. Local
+  // geliştirmeye dönmek istersen 'http://localhost:5202' yap.
+  static const String baseUrl = 'http://13.60.174.208:5202';
 
   Future<int> registerUser({
     required String email,
@@ -61,7 +62,8 @@ class ApiClient {
     required int userId,
     required String brand,
     required String model,
-    required int year,
+    required int minYear,
+    required int maxYear,
     int? maxMileage,
     double? maxPrice,
     String? fuelType,
@@ -73,7 +75,8 @@ class ApiClient {
         'userId': userId,
         'brand': brand,
         'model': model,
-        'year': year,
+        'minYear': minYear,
+        'maxYear': maxYear,
         'maxMileage': maxMileage,
         'maxPrice': maxPrice,
         'fuelType': fuelType,
@@ -161,3 +164,5 @@ class ApiClient {
         .toList();
   }
 }
+
+

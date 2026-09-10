@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../navigation/cinematic_route.dart';
 import '../services/session_store.dart';
+import '../theme/app_theme.dart';
+import '../widgets/cinematic_background.dart';
+import '../widgets/glass_panel.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -53,9 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => HomeScreen(userId: userId),
-        ),
+        cinematicRoute(HomeScreen(userId: userId)),
       );
     } catch (e) {
       setState(() {
@@ -73,34 +75,53 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            shrinkWrap: true,
-            children: [
-              Icon(
-                Icons.directions_car_filled,
-                size: 56,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'VehiclePriceTracker',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _isRegisterMode ? 'Yeni hesap oluştur' : 'Hesabına giriş yap',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 24),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+      body: CinematicBackground(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              shrinkWrap: true,
+              children: [
+                Container(
+                  width: 84,
+                  height: 84,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.accentColor.withValues(alpha: 0.12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.accentColor.withValues(alpha: 0.35),
+                        blurRadius: 32,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.directions_car_filled,
+                    size: 44,
+                    color: AppTheme.accentColor,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'VehiclePriceTracker',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _isRegisterMode ? 'Yeni hesap oluştur' : 'Hesabına giriş yap',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.white60),
+                ),
+                const SizedBox(height: 28),
+                GlassPanel(
+                  glowColor: AppTheme.accentColor,
+                  padding: const EdgeInsets.all(20),
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -124,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 14),
                         TextFormField(
                           controller: _passwordController,
                           decoration: const InputDecoration(
@@ -150,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             padding: const EdgeInsets.only(bottom: 12),
                             child: Text(
                               _errorMessage!,
-                              style: const TextStyle(color: Colors.red),
+                              style: TextStyle(color: AppTheme.errorColor),
                               textAlign: TextAlign.center,
                             ),
                           ),
@@ -162,16 +183,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                   width: 18,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.white,
+                                    color: AppTheme.onAccentColor,
                                   ),
                                 )
                               : Icon(_isRegisterMode ? Icons.person_add : Icons.login),
                           label: Text(_isRegisterMode ? 'Kayıt Ol' : 'Giriş Yap'),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                         TextButton(
                           onPressed: _isSubmitting
                               ? null
@@ -191,8 +209,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

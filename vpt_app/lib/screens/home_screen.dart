@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../api/api_client.dart';
+import '../data/vehicle_catalog.dart';
 import '../models/tracked_vehicle.dart';
+import '../navigation/cinematic_route.dart';
 import '../services/session_store.dart';
+import '../theme/app_theme.dart';
+import '../widgets/cinematic_background.dart';
+import '../widgets/count_up_text.dart';
+import '../widgets/glass_panel.dart';
+import '../widgets/staggered_fade_in.dart';
 import 'login_screen.dart';
 import 'results_screen.dart';
 import 'search_screen.dart';
@@ -36,20 +44,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openSearch() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => SearchScreen(userId: widget.userId),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(cinematicRoute(SearchScreen(userId: widget.userId)));
     _refresh();
   }
 
   Future<void> _openResults(TrackedVehicle tracked) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ResultsScreen(
+      cinematicRoute(
+        ResultsScreen(
           userId: widget.userId,
           searchId: tracked.vehicleSearchId,
+          brand: tracked.brand,
         ),
       ),
     );
@@ -61,10 +68,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!mounted) return;
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
-      (route) => false,
-    );
+    Navigator.of(
+      context,
+    ).pushAndRemoveUntil(cinematicRoute(const LoginScreen()), (route) => false);
   }
 
   @override
@@ -80,100 +86,189 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+      extendBodyBehindAppBar: true,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openSearch,
+        backgroundColor: AppTheme.accentColor,
+        foregroundColor: AppTheme.onAccentColor,
         icon: const Icon(Icons.search),
         label: const Text('Araç Ara'),
       ),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: FutureBuilder<List<TrackedVehicle>>(
-          future: _trackedFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
+      body: CinematicBackground(
+        child: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            child: FutureBuilder<List<TrackedVehicle>>(
+              future: _trackedFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-            if (snapshot.hasError) {
-              return ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'Hata: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.red),
+                if (snapshot.hasError) {
+                  return ListView(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          'Hata: ${snapshot.error}',
+                          style: TextStyle(color: AppTheme.errorColor),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                final tracked = snapshot.data ?? [];
+
+                if (tracked.isEmpty) {
+                  return ListView(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(32, 96, 32, 32),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.notifications_none,
+                              size: 48,
+                              color: Colors.white.withValues(alpha: 0.4),
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Henüz canlı takibe aldığın bir araç yok.',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Sağ alttaki "Araç Ara" butonuyla arama yapıp '
+                              'sonuçlardan bir aracı canlı takibe alabilirsin.',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.copyWith(color: Colors.white54),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 88, 16, 96),
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        style: Theme.of(context).textTheme.titleMedium,
+                        children: [
+                          const TextSpan(text: 'Aktif takip: '),
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.baseline,
+                            baseline: TextBaseline.alphabetic,
+                            child: CountUpText(
+                              value: tracked.length,
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: AppTheme.accentColor,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              );
-            }
+                    const SizedBox(height: 16),
+                    for (final (index, item) in tracked.indexed)
+                      StaggeredFadeIn(
+                        index: index,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _TrackedVehicleCard(
+                            item: item,
+                            onTap: () => _openResults(item),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-            final tracked = snapshot.data ?? [];
+class _TrackedVehicleCard extends StatelessWidget {
+  final TrackedVehicle item;
+  final VoidCallback onTap;
 
-            if (tracked.isEmpty) {
-              return ListView(
+  const _TrackedVehicleCard({required this.item, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final brandColor = colorForBrand(item.brand);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: GlassPanel(
+        glowColor: brandColor,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Hero(
+              tag: 'brand-logo-${item.vehicleSearchId}',
+              child: Container(
+                width: 52,
+                height: 52,
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: SvgPicture.asset(
+                  brandLogoAsset(item.brand),
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const Icon(Icons.directions_car_outlined),
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.notifications_none,
-                          size: 48,
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Henüz canlı takibe aldığın bir araç yok.',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Sağ alttaki "Araç Ara" butonuyla arama yapıp '
-                          'sonuçlardan bir aracı canlı takibe alabilirsin.',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            }
-
-            return ListView(
-              padding: const EdgeInsets.only(bottom: 96),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                  child: Text(
-                    'Aktif takip: ${tracked.length}',
+                  Text(
+                    '${item.brand} ${item.model}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                ),
-                for (final item in tracked)
-                  Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    child: ListTile(
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.directions_car_outlined),
-                      ),
-                      title: Text('${item.brand} ${item.model} (${item.year})'),
-                      subtitle: Text(
-                        item.matchCount > 0
-                            ? '${item.matchCount} eşleşme bulundu'
-                            : 'Henüz eşleşme yok',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _openResults(item),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.minYear == item.maxYear
+                        ? '${item.minYear}'
+                        : '${item.minYear}–${item.maxYear}',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.white54),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.matchCount > 0
+                        ? '${item.matchCount} eşleşme bulundu'
+                        : 'Henüz eşleşme yok',
+                    style: TextStyle(
+                      color: item.matchCount > 0 ? brandColor : Colors.white38,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
                     ),
                   ),
-              ],
-            );
-          },
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white38),
+          ],
         ),
       ),
     );

@@ -2,7 +2,8 @@ class TrackedVehicle {
   final int vehicleSearchId;
   final String brand;
   final String model;
-  final int year;
+  final int minYear;
+  final int maxYear;
   final int? maxMileage;
   final double? maxPrice;
   final String? fuelType;
@@ -14,7 +15,8 @@ class TrackedVehicle {
     required this.vehicleSearchId,
     required this.brand,
     required this.model,
-    required this.year,
+    required this.minYear,
+    required this.maxYear,
     this.maxMileage,
     this.maxPrice,
     this.fuelType,
@@ -28,7 +30,8 @@ class TrackedVehicle {
       vehicleSearchId: json['vehicleSearchId'] as int,
       brand: json['brand'] as String,
       model: json['model'] as String,
-      year: json['year'] as int,
+      minYear: json['minYear'] as int,
+      maxYear: json['maxYear'] as int,
       maxMileage: json['maxMileage'] as int?,
       maxPrice: (json['maxPrice'] as num?)?.toDouble(),
       fuelType: json['fuelType'] as String?,
